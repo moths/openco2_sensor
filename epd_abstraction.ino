@@ -321,8 +321,21 @@ void displayWelcome() {
 
   initEpdOnce();
 #ifdef EINK_1IN54V2
-  Paint_DrawBitMap(gImage_welcome);
+  Paint_Clear(WHITE);
+                         // vertikal, horizontal
+  Paint_DrawImage(gImage_openco2, 60, 0, 80, 200);
   Paint_DrawString_EN(1, 1, VERSION, &Font16, WHITE, BLACK);
+
+  // circle XCenter,YCenter,radius
+  Paint_DrawCircle(145, 35, 20, BLACK, DOT_PIXEL_3X3, DRAW_FILL_EMPTY);
+  Paint_DrawRectangle(139, 0, 151, 30, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+  Paint_DrawLine(145, 13, 145, 34, BLACK, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+
+  // arrow Xstart,Ystart,Xend,Yend
+  Paint_DrawLine(190, 6, 190, 60, BLACK, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+  Paint_DrawLine(182, 42, 190, 60, BLACK, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+  Paint_DrawLine(198, 42, 190, 60, BLACK, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+
   EPD_1IN54_V2_Display(BlackImage);
   EPD_1IN54_V2_Sleep();
 #endif
@@ -359,27 +372,28 @@ void initEpdOnce() {
 }
 
 void displayInitTestMode() {
-#ifdef EINK_1IN54V2
-  Paint_DrawBitMap(gImage_init);
+  Paint_Clear(WHITE);
+  Paint_DrawImage(gImage_openco2, 60, 0, 80, 200);
+                         // vertikal, horizontal
   Paint_DrawString_EN(1, 1, VERSION, &Font16, WHITE, BLACK);
-  Paint_DrawNum(125, 25, 1, &mid, BLACK, WHITE); // 15 sec for testmode
+  Paint_DrawString_EN(50, 200-16, "Test Mode", &Font16, WHITE, BLACK);
+#ifdef EINK_1IN54V2
   EPD_1IN54_V2_Display(BlackImage);
 #endif
 #ifdef EINK_4IN2
-  Paint_DrawString_EN(1, 1, VERSION, &Font16, WHITE, BLACK);
   EPD_4IN2_Display(BlackImage);
 #endif
 }
 
 void displayInit() {
-#ifdef EINK_1IN54V2
-  Paint_DrawBitMap(gImage_init);
+  Paint_Clear(WHITE);
+  Paint_DrawImage(gImage_openco2, 60, 0, 80, 200);
   Paint_DrawString_EN(1, 1, VERSION, &Font16, WHITE, BLACK);
+#ifdef EINK_1IN54V2
   EPD_1IN54_V2_Display(BlackImage);
   EPD_1IN54_V2_Sleep();
 #endif
 #ifdef EINK_4IN2
-  Paint_DrawString_EN(1, 1, VERSION, &Font16, WHITE, BLACK);
   EPD_4IN2_Display(BlackImage);
   EPD_4IN2_Sleep();
 #endif
