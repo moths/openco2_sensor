@@ -98,7 +98,9 @@ void handleButtonPress() {
             break;
           case INFO:
             displayinfo();
-            while (digitalRead(BUTTON) != 0) delay(100); // wait for button press
+            while (digitalRead(BUTTON) != 0) delay(100);  // wait for button press (page 1)
+            displayinfo2();
+            while (digitalRead(BUTTON) != 0) delay(100);  // wait for button press (page 2)
             break;
           case FUN:
             FUNMenu();
@@ -1281,6 +1283,64 @@ void displayinfo() {
   char offset[20];
   snprintf(offset, sizeof(offset), "%.2f", tOffset);
   Paint_DrawString_EN(122, 145, offset, &Font16, WHITE, BLACK);*/
+
+  updateDisplay();
+}
+
+void displayinfo2() {
+  extern uint8_t HWSubRev;
+  extern bool BatteryMode, useWiFi, limitMaxBattery, LEDonBattery, LEDonUSB;
+  Paint_Clear(WHITE);
+
+  // Header
+  Paint_DrawString_EN(32, 0, "INFO  2/2", &Font16, WHITE, BLACK);
+  Paint_DrawLine(0, 16, 200, 16, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+  // Hardware & power
+  char line[24];
+  sprintf(line, "HW Rev: %d", HWSubRev);
+  Paint_DrawString_EN(0, 18, line, &Font16, WHITE, BLACK);
+
+  sprintf(line, "BatteryMode: %s", BatteryMode ? "yes" : "no");
+  Paint_DrawString_EN(0, 34, line, &Font16, WHITE, BLACK);
+
+  sprintf(line, "LimitMaxBat: %s", limitMaxBattery ? "yes" : "no");
+  Paint_DrawString_EN(0, 50, line, &Font16, WHITE, BLACK);
+
+  sprintf(line, "LED on Bat: %s", LEDonBattery ? "yes" : "no");
+  Paint_DrawString_EN(0, 66, line, &Font16, WHITE, BLACK);
+
+  sprintf(line, "LED on USB: %s", LEDonUSB ? "yes" : "no");
+  Paint_DrawString_EN(0, 82, line, &Font16, WHITE, BLACK);
+
+#ifdef MQTT
+  extern char mqtt_server[];
+  extern char mqtt_port[];
+  extern char mqtt_user[];
+  extern MqttClient mqttClient;
+
+  Paint_DrawLine(0, 98, 200, 98, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+  Paint_DrawString_EN(0, 100, "MQTT server:", &Font16, WHITE, BLACK);
+  Paint_DrawString_EN(0, 116, mqtt_server[0] ? mqtt_server : "(not set)", &Font16, WHITE, BLACK);
+
+  sprintf(line, "Port: %s", mqtt_port[0] ? mqtt_port : "-");
+  Paint_DrawString_EN(0, 132, line, &Font16, WHITE, BLACK);
+
+  sprintf(line, "User: %s", mqtt_user[0] ? mqtt_user : "-");
+  Paint_DrawString_EN(0, 148, line, &Font16, WHITE, BLACK);
+
+  bool mqttOk = mqttClient.connected();
+  sprintf(line, "Status: %s", mqttOk ? "connected" : "OFFLINE");
+  Paint_DrawString_EN(0, 164, line, &Font16, WHITE, BLACK);
+
+  if (!mqttOk) {
+    sprintf(line, "ConnErr: %d", mqttClient.connectError());
+    Paint_DrawString_EN(0, 180, line, &Font16, WHITE, BLACK);
+  }
+#else
+  Paint_DrawLine(0, 98, 200, 98, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+  Paint_DrawString_EN(0, 100, "MQTT: not compiled", &Font16, WHITE, BLACK);
+#endif
 
   updateDisplay();
 }

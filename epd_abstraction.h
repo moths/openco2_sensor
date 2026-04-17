@@ -112,6 +112,7 @@ typedef struct {
 
 void handleButtonPress();
 void displayResetConfirmation();
+void displayinfo2();
 void changeFont(int font);
 void displayWelcome();
 void initEpdOnce();
