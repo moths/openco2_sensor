@@ -25,7 +25,7 @@
   #define DPRINT(x)     do {} while(0)
 #endif
 
-#define HEIGHT_ABOVE_SEA_LEVEL 50             // Berlin
+#define HEIGHT_ABOVE_SEA_LEVEL 10             // Berlin
 #define TZ_DATA "CET-1CEST,M3.5.0,M10.5.0/3"  // Europe/Berlin time zone from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 #define LIGHT_SLEEP_TIME 500
 #define DEEP_SLEEP_TIME 29124             // 30 sec
@@ -53,7 +53,7 @@ Preferences preferences;
 #include <WiFiManager.h>
 WiFiManager wifiManager;
 
-#define airgradient
+// #define airgradient
 #ifdef airgradient
 /* use https://github.com/geerlingguy/internet-pi to store values */
 #include <WebServer.h>
@@ -61,7 +61,7 @@ const int port = 9925;
 WebServer server(port);
 #endif /* airgradient */
 
-// #define MQTT
+#define MQTT
 #ifdef MQTT
 #ifdef airgradient
 #error only activate one: MQTT or airgradient
