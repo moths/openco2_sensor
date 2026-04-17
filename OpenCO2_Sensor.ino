@@ -67,15 +67,28 @@ WebServer server(port);
 #error only activate one: MQTT or airgradient
 #endif /* airgradient */
 #include <ArduinoMqttClient.h>
-WiFiClient wifiClient;
+// On ESP32-S2 the MQTT CONNACK (broker's connect acknowledgement) arrives in the
+// TCP layer of lwIP - the TCP/IP stack embedded in Espressif's ESP-IDF and used
+// by the ESP32 Arduino core - but isn't promoted to the socket receive queue until
+// two FreeRTOS task handoffs complete: wifi_task (receives the packet from the
+// hardware) posts to tcpip_task (processes TCP and writes to the socket buffer).
+// delay(1) suspends this task for 1 ms, allowing both higher-priority tasks to run
+// to completion; yield() triggers only one context switch and returns too early.
+class YieldingWiFiClient : public WiFiClient {
+public:
+  int available() override { delay(1); return WiFiClient::available(); }
+};
+YieldingWiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 char mqtt_server[40];
 char mqtt_port[6];
-char api_token[34];
+char mqtt_user[34];
+char mqtt_password[34];
 
 WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
 WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
-WiFiManagerParameter custom_api_token("apikey", "API token", api_token, 32);
+WiFiManagerParameter custom_mqtt_user("mqttuser", "mqtt user", mqtt_user, 32);
+WiFiManagerParameter custom_mqtt_password("mqttpass", "mqtt password", mqtt_password, 32);
 #endif /* MQTT */
 
 /* led */
@@ -309,22 +322,26 @@ void HandleNotFound() {
 #ifdef MQTT
 void saveCredentials() {
   preferences.begin("co2-sensor", false);
-  preferences.putString("mqtt_server", custom_mqtt_server.getValue());
-  preferences.putString("mqtt_port", custom_mqtt_port.getValue());
-  preferences.putString("api_token", custom_api_token.getValue());
+  preferences.putString("mqtt_server",   custom_mqtt_server.getValue());
+  preferences.putString("mqtt_port",     custom_mqtt_port.getValue());
+  preferences.putString("mqtt_user",     custom_mqtt_user.getValue());
+  preferences.putString("mqtt_password", custom_mqtt_password.getValue());
   preferences.end();
+  DPRINTF("[MQTT] saved: %s:%s\n", custom_mqtt_server.getValue(), custom_mqtt_port.getValue());
 }
 
 void loadCredentials() {
   preferences.begin("co2-sensor", true);
-  String s_mqtt_server = preferences.getString("mqtt_server", "");
-  String s_mqtt_port = preferences.getString("mqtt_port", "");
-  String s_api_token = preferences.getString("api_token", "");
+  String s_mqtt_server   = preferences.getString("mqtt_server", "");
+  String s_mqtt_port     = preferences.getString("mqtt_port", "");
+  String s_mqtt_user     = preferences.getString("mqtt_user", "");
+  String s_mqtt_password = preferences.getString("mqtt_password", "");
   preferences.end();
-
-  strcpy(mqtt_server, s_mqtt_server.c_str());
-  strcpy(mqtt_port, s_mqtt_port.c_str());
-  strcpy(api_token, s_api_token.c_str());
+  strcpy(mqtt_server,   s_mqtt_server.c_str());
+  strcpy(mqtt_port,     s_mqtt_port.c_str());
+  strcpy(mqtt_user,     s_mqtt_user.c_str());
+  strcpy(mqtt_password, s_mqtt_password.c_str());
+  DPRINTF("[MQTT] loaded: %s:%s user=%s\n", mqtt_server, mqtt_port, mqtt_user);
 }
 #endif /* MQTT */
 
@@ -750,18 +767,90 @@ void toggleWiFi() {
   }
 }
 
+#ifdef MQTT
+void connectMQTT() {
+  if (mqtt_server[0] == '\0' || mqtt_port[0] == '\0') {
+    DPRINTLN("[MQTT] no credentials");
+    return;
+  }
+  int mport = atoi(mqtt_port);
+  if (mqtt_user[0] != '\0') mqttClient.setUsernamePassword(mqtt_user, mqtt_password);
+  String clientMac = WiFi.macAddress();
+  clientMac.replace(":", "");
+  clientMac.toLowerCase();
+  mqttClient.setId("openco2_" + clientMac);
+  mqttClient.stop();
+  if (!mqttClient.connect(mqtt_server, mport)) {
+    DPRINTF("[MQTT] connect failed (err=%d)\n", mqttClient.connectError());
+    return;
+  }
+  DPRINTF("[MQTT] connected to %s:%d\n", mqtt_server, mport);
+  mqttClient.setTxPayloadSize(512);
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  String macUpper = mac;
+  macUpper.toUpperCase();
+  mac.toLowerCase();
+  String devJson = String(",\"device\":{\"identifiers\":[\"openco2_") + mac +
+                   "\"],\"name\":\"OpenCo2 " + macUpper + "\",\"manufacturer\":\"davidkreidler\",\"model\":\"OpenCo2\"}";
+
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/co2/config", true);
+  mqttClient.print("{\"name\":\"co2\",\"device_class\":\"carbon_dioxide\","
+                   "\"state_topic\":\"openco2/" + mac + "/co2_ppm\","
+                   "\"unit_of_measurement\":\"ppm\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_co2\"" + devJson + "}");
+  mqttClient.endMessage();
+
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/temperature/config", true);
+  mqttClient.print("{\"name\":\"temperature\",\"device_class\":\"temperature\","
+                   "\"state_topic\":\"openco2/" + mac + "/temperature\","
+                   "\"unit_of_measurement\":\"\\u00b0C\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_temperature\"" + devJson + "}");
+  mqttClient.endMessage();
+
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/humidity/config", true);
+  mqttClient.print("{\"name\":\"humidity\",\"device_class\":\"humidity\","
+                   "\"state_topic\":\"openco2/" + mac + "/humidity\","
+                   "\"unit_of_measurement\":\"%\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_humidity\"" + devJson + "}");
+  mqttClient.endMessage();
+  DPRINTLN("[MQTT] discovery done");
+}
+
+void mqttUpdate() {
+  if (!mqttClient.connected()) {
+    connectMQTT();
+  }
+  if (!mqttClient.connected()) return;
+  mqttClient.poll();
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  mac.toLowerCase();
+  mqttClient.beginMessage("openco2/" + mac + "/co2_ppm");
+  mqttClient.print(co2);
+  mqttClient.endMessage();
+  mqttClient.beginMessage("openco2/" + mac + "/temperature");
+  mqttClient.print(temperature);
+  mqttClient.endMessage();
+  mqttClient.beginMessage("openco2/" + mac + "/humidity");
+  mqttClient.print(humidity);
+  mqttClient.endMessage();
+  DPRINTF("[MQTT] published to %s\n", mqtt_server);
+}
+#endif /* MQTT */
+
 void startWiFi() {
   wifiManager.setSaveConfigCallback([]() {
+    shouldSaveConfig = true;
 #ifdef MQTT
     saveCredentials();
 #endif
   });
-
-  wifiManager.setSaveConfigCallback(saveConfigCallback);
 #ifdef MQTT
   wifiManager.addParameter(&custom_mqtt_server);
   wifiManager.addParameter(&custom_mqtt_port);
-  wifiManager.addParameter(&custom_api_token);
+  wifiManager.addParameter(&custom_mqtt_user);
+  wifiManager.addParameter(&custom_mqtt_password);
 #endif /* MQTT */
 
   WiFi.setHostname("OpenCO2");  // hostname when connected to home network
@@ -772,9 +861,6 @@ void startWiFi() {
 
 #ifdef MQTT
   loadCredentials();
-  if (mqtt_server[0] != '\0' && mqtt_port[0] != '\0') {
-    mqttClient.connect(mqtt_server, (int)mqtt_port);
-  }
 #endif /* MQTT */
 
 #ifdef airgradient
@@ -784,7 +870,7 @@ void startWiFi() {
   server.on("/favicon.ico", handleFavicon);
   server.onNotFound(HandleNotFound);
   server.begin();
-  Serial.println("HTTP server started at ip " + WiFi.localIP().toString() + ":" + String(port));
+  DPRINTLN("HTTP server started at ip " + WiFi.localIP().toString() + ":" + String(port));
 #endif /* airgradient */
 
   configTime(0, 0, "pool.ntp.org");
@@ -964,20 +1050,6 @@ void loop() {
     displayWriteMeasuerments(co2, temperature, humidity);
   }
 
-#ifdef MQTT
-  if (!error && !BatteryMode && useWiFi && WiFi.status() == WL_CONNECTED) {
-    mqttClient.beginMessage("co2_ppm");
-    mqttClient.print(co2);
-    mqttClient.endMessage();
-    mqttClient.beginMessage("temperature");
-    mqttClient.print(temperature);
-    mqttClient.endMessage();
-    mqttClient.beginMessage("humidity");
-    mqttClient.print(humidity);
-    mqttClient.endMessage();
-  }
-#endif /* MQTT */
-
   if (TEST_MODE) {
     displayWriteTestResults(readBatteryVoltage(), sensorStatus);
   } else {
@@ -1003,6 +1075,9 @@ void loop() {
   DPRINTLN(WiFi.status());
 
   updateDisplay();
+#ifdef MQTT
+  if (!BatteryMode && useWiFi && WiFi.status() == WL_CONNECTED) mqttUpdate();
+#endif /* MQTT */
 
   if (BatteryMode) {
     if (!comingFromDeepSleep) {
