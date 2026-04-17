@@ -239,6 +239,9 @@ void OptionsMenu() {
             preferences.putInt("font", font);
             preferences.end();
             break;
+          case RESET_DISPLAY:
+            factoryReset();
+            return;
           case EXIT_DISPLAY:
             return;
         }
@@ -800,7 +803,7 @@ void displayLEDMenu(uint8_t selectedOption) {
 void displayOptionsMenu(uint8_t selectedOption) {
   const char* OptionsMenuItem;
   Paint_Clear(WHITE);
-  Paint_DrawString_EN(40, 0, "DISPLAY", &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(25, 0, "SETTINGS", &Font24, WHITE, BLACK);
   Paint_DrawLine(10, 23, 190, 23, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 
   for (int i=0; i<NUM_DISPLAY_OPTIONS; i++) {
@@ -1002,6 +1005,28 @@ void displayCalibrationWarning() {
     Paint_DrawString_EN(1, 184, "Knopf = abbrechen", &Font16, BLACK, WHITE);
   }
 
+  updateDisplay();
+}
+
+void displayResetConfirmation() {
+  Paint_Clear(BLACK);
+
+  // Exclamation Mark !
+  Paint_DrawLine( 100,  50, 100,  85, WHITE, DOT_PIXEL_4X4, LINE_STYLE_SOLID);
+  Paint_DrawCircle(100, 105,   5, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+  Paint_DrawLine( 100,  20,  35, 120, WHITE, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+  Paint_DrawLine( 100,  20, 165, 120, WHITE, DOT_PIXEL_3X3, LINE_STYLE_SOLID);
+  Paint_DrawLine(  37, 120, 163, 120, WHITE, DOT_PIXEL_4X4, LINE_STYLE_SOLID);
+
+  if (english) {
+    Paint_DrawString_EN(25, 128, "FACTORY", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(38, 152, "RESET", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(1,  176, "Press to cancel", &Font16, BLACK, WHITE);
+  } else {
+    Paint_DrawString_EN(25, 128, "FABRIK", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(20, 152, "RESET", &Font24, BLACK, WHITE);
+    Paint_DrawString_EN(1,  176, "Knopf = Abbruch", &Font16, BLACK, WHITE);
+  }
   updateDisplay();
 }
 

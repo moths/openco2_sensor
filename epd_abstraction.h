@@ -27,6 +27,7 @@ enum DisplayMenuOptions {
   TEMP_UNIT,
   LANGUAGE,
   FONT,
+  RESET_DISPLAY,
   EXIT_DISPLAY,
   NUM_DISPLAY_OPTIONS
 };
@@ -41,7 +42,7 @@ enum FUNMenuOptions {
 /* ENGLISH */
 const char* EnglishMenuItems[NUM_OPTIONS] = {
   "LED",
-  "Display",
+  "Settings",
   "Calibrate",
   "History",
   "Wi-Fi",
@@ -61,6 +62,7 @@ const char* EnglishOptionsMenuItems[NUM_DISPLAY_OPTIONS] = {
   "Unit",
   "English",
   "Font",
+  "Reset",
   "Exit"
 };
 const char* EnglishFUNmenuItems[NUM_FUN_OPTIONS] = {
@@ -73,7 +75,7 @@ const char* EnglishFUNmenuItems[NUM_FUN_OPTIONS] = {
 /* GERMAN */
 const char* GermanMenuItems[NUM_OPTIONS] = {
   "LED",
-  "Display",
+  "Einst.",
   "Kalibrieren",
   "Historie",
   "WLAN",
@@ -93,6 +95,7 @@ const char* GermanOptionsMenuItems[NUM_DISPLAY_OPTIONS] = {
   "Einheit",
   "German",
   "Schrift",
+  "Reset",
   "Beenden"
 };
 const char* GermanFUNmenuItems[NUM_FUN_OPTIONS] = {
@@ -108,6 +111,7 @@ typedef struct {
 } tempHumData;
 
 void handleButtonPress();
+void displayResetConfirmation();
 void changeFont(int font);
 void displayWelcome();
 void initEpdOnce();

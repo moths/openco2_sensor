@@ -609,6 +609,26 @@ void calibrate() {
   ESP.restart();
 }
 
+void factoryReset() {
+  displayResetConfirmation();
+  for (int i = 0; i < 30; i++) {   // 3-second countdown
+    if (digitalRead(BUTTON) == 0) return;  // button press = cancel
+    delay(100);
+  }
+  wifiManager.resetSettings();
+  preferences.begin("co2-sensor", false);
+  preferences.clear();
+  preferences.end();
+  preferences.begin("fsensor", false);
+  preferences.clear();
+  preferences.end();
+  memset(co2measurements, 0, sizeof(co2measurements));
+  memset(tempHumMeasurements, 0, sizeof(tempHumMeasurements));
+  currentIndex = 0;
+  overflow = false;
+  ESP.restart();
+}
+
 #include "pictures.h"
 void rainbowMode() {
   displayImage(gImage_rainbow);  // gImage_santa
