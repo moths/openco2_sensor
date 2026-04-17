@@ -12,6 +12,19 @@
 */
 #define VERSION "v6.1"
 
+#if ARDUINO_USB_CDC_ON_BOOT && !ARDUINO_USB_MODE
+  #define DEBUG_PRINT
+#endif
+#ifdef DEBUG_PRINT
+  #define DPRINTLN(x)   Serial.println(x)
+  #define DPRINTF(...)  Serial.printf(__VA_ARGS__)
+  #define DPRINT(x)     Serial.print(x)
+#else
+  #define DPRINTLN(x)   do {} while(0)
+  #define DPRINTF(...)  do {} while(0)
+  #define DPRINT(x)     do {} while(0)
+#endif
+
 #define HEIGHT_ABOVE_SEA_LEVEL 50             // Berlin
 #define TZ_DATA "CET-1CEST,M3.5.0,M10.5.0/3"  // Europe/Berlin time zone from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 #define LIGHT_SLEEP_TIME 500
@@ -86,7 +99,7 @@ RTC_DATA_ATTR uint8_t ledbrightness, HWSubRev, font, skipMeasurement = 10;
 RTC_DATA_ATTR float maxBatteryVoltage;
 
 /* TEST_MODE */
-RTC_DATA_ATTR bool TEST_MODE;
+RTC_DATA_ATTR bool TEST_MODE = false;
 RTC_DATA_ATTR uint16_t sensorStatus;
 RTC_DATA_ATTR uint64_t serialNumber;
 
@@ -327,7 +340,10 @@ float getTempOffset() {
 void initOnce() {
   initEpdOnce();
 
-  if (EEPROM.read(0) != 1) TEST_MODE = true;
+  if (EEPROM.read(0) != 1) {
+    TEST_MODE = true;
+    DPRINTLN("TEST_MODE");
+  }
   if (TEST_MODE) {
     EEPROM.write(1, 3);  // write HWSubRev 3
     HWSubRev = 3;
@@ -356,6 +372,7 @@ void initOnce() {
     // scd4x.performFactoryReset();
     // delay(100);
     int16_t selfTest = scd4x.performSelfTest(sensorStatus);
+    DPRINTF("scd4x self test %d, result %d\n", selfTest, sensorStatus);
     if (selfTest != 0 /*NO_ERROR*/) sensorStatus=99;
   }
 
@@ -810,11 +827,15 @@ void setup() {
   }
   scd4x.begin(Wire, 0x62); // 0x62 is the default I2C address for SCD4x
 
-  if (!initDone) initOnce();
-
 #if ARDUINO_USB_CDC_ON_BOOT && !ARDUINO_USB_MODE
-  if (TEST_MODE) Serial.begin(115200);
+  #ifdef DEBUG_PRINT
+  Serial.begin(115200);
+  #else
+  if (EEPROM.read(0) != 1) Serial.begin(115200);  // TEST_MODE check before initOnce sets it
+  #endif
 #endif
+
+  if (!initDone) initOnce();
 
   /* power */
   pinMode(USB_PRESENT, INPUT);
@@ -958,14 +979,6 @@ void loop() {
 #endif /* MQTT */
 
   if (TEST_MODE) {
-#if ARDUINO_USB_CDC_ON_BOOT && !ARDUINO_USB_MODE
-    Serial.print(co2);
-    Serial.print('\t');
-    Serial.print(temperature);
-    Serial.print('\t');
-    Serial.print(humidity);
-    Serial.print('\t');
-#endif
     displayWriteTestResults(readBatteryVoltage(), sensorStatus);
   } else {
     /* Print Battery % */
@@ -977,6 +990,17 @@ void loop() {
       displayWiFiStrengh();
     }
   }
+  DPRINT(co2);
+  DPRINT('\t');
+  DPRINT(temperature);
+  DPRINT('\t');
+  DPRINT(humidity);
+  DPRINT('\t');
+  DPRINT(BatteryMode);
+  DPRINT('\t');
+  DPRINT(WiFi.RSSI());
+  DPRINT('\t');
+  DPRINTLN(WiFi.status());
 
   updateDisplay();
 
