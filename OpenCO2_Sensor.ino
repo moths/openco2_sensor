@@ -764,6 +764,18 @@ void toggleWiFi() {
   }
 }
 
+void saveBoolPref(const char* key, bool value) {
+  preferences.begin("co2-sensor", false);
+  preferences.putBool(key, value);
+  preferences.end();
+}
+
+void saveIntPref(const char* key, int value) {
+  preferences.begin("co2-sensor", false);
+  preferences.putInt(key, value);
+  preferences.end();
+}
+
 #ifdef MQTT
 void connectMQTT() {
   if (mqtt_server[0] == '\0' || mqtt_port[0] == '\0') {
@@ -812,6 +824,120 @@ void connectMQTT() {
                    "\"unique_id\":\"openco2_" + mac + "_humidity\"" + devJson + "}");
   mqttClient.endMessage();
   DPRINTLN("[MQTT] discovery done");
+
+  // writable switch discovery
+  auto pubSwitch = [&](const char* id, const char* name) {
+    mqttClient.beginMessage("homeassistant/switch/openco2_" + mac + "/" + id + "/config", true);
+    mqttClient.print(String("{\"name\":\"") + name + "\","
+                     "\"command_topic\":\"openco2/" + mac + "/set/" + id + "\","
+                     "\"state_topic\":\"openco2/" + mac + "/" + id + "\","
+                     "\"payload_on\":\"1\",\"payload_off\":\"0\","
+                     "\"unique_id\":\"openco2_" + mac + "_" + id + "\"" + devJson + "}");
+    mqttClient.endMessage();
+    mqttClient.subscribe("openco2/" + mac + "/set/" + id);
+  };
+  pubSwitch("LEDonBattery",     "LED on Battery");
+  pubSwitch("LEDonUSB",         "LED on USB");
+  pubSwitch("useSmoothLEDcolor","LED smooth color");
+  pubSwitch("invertDisplay",    "Invert display");
+  pubSwitch("useFahrenheit",    "Temperature in F");
+  pubSwitch("english",          "Language English");
+  pubSwitch("limitMaxBattery",  "Limit battery to 80%");
+
+  // ledbrightness as number entity
+  mqttClient.beginMessage("homeassistant/number/openco2_" + mac + "/ledbrightness/config", true);
+  mqttClient.print("{\"name\":\"LED brightness\","
+                   "\"command_topic\":\"openco2/" + mac + "/set/ledbrightness\","
+                   "\"state_topic\":\"openco2/" + mac + "/ledbrightness\","
+                   "\"min\":0,\"max\":100,\"step\":1,"
+                   "\"unit_of_measurement\":\"%\","
+                   "\"unique_id\":\"openco2_" + mac + "_ledbrightness\"" + devJson + "}");
+  mqttClient.endMessage();
+  mqttClient.subscribe("openco2/" + mac + "/set/ledbrightness");
+
+  // battery and WiFi sensor discovery
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/battery_pct/config", true);
+  mqttClient.print("{\"name\":\"battery\",\"device_class\":\"battery\","
+                   "\"state_topic\":\"openco2/" + mac + "/battery_pct\","
+                   "\"unit_of_measurement\":\"%\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_battery\"" + devJson + "}");
+  mqttClient.endMessage();
+
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/battery_voltage/config", true);
+  mqttClient.print("{\"name\":\"battery voltage\",\"device_class\":\"voltage\","
+                   "\"state_topic\":\"openco2/" + mac + "/battery_voltage\","
+                   "\"unit_of_measurement\":\"V\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_battery_voltage\"" + devJson + "}");
+  mqttClient.endMessage();
+
+  mqttClient.beginMessage("homeassistant/sensor/openco2_" + mac + "/rssi/config", true);
+  mqttClient.print("{\"name\":\"WiFi RSSI\",\"device_class\":\"signal_strength\","
+                   "\"state_topic\":\"openco2/" + mac + "/rssi\","
+                   "\"unit_of_measurement\":\"dBm\",\"state_class\":\"measurement\","
+                   "\"unique_id\":\"openco2_" + mac + "_rssi\"" + devJson + "}");
+  mqttClient.endMessage();
+
+  // publish initial states for writable settings
+  auto pubBoolState = [&](const char* id, bool val) {
+    mqttClient.beginMessage("openco2/" + mac + "/" + id, true);
+    mqttClient.print(val ? "1" : "0");
+    mqttClient.endMessage();
+  };
+  pubBoolState("LEDonBattery",      LEDonBattery);
+  pubBoolState("LEDonUSB",          LEDonUSB);
+  pubBoolState("useSmoothLEDcolor", useSmoothLEDcolor);
+  pubBoolState("invertDisplay",     invertDisplay);
+  pubBoolState("useFahrenheit",     useFahrenheit);
+  pubBoolState("english",           english);
+  pubBoolState("limitMaxBattery",   limitMaxBattery);
+  mqttClient.beginMessage("openco2/" + mac + "/ledbrightness", true);
+  mqttClient.print(ledbrightness);
+  mqttClient.endMessage();
+
+  mqttClient.onMessage([](int messageSize) {
+    String topic = mqttClient.messageTopic();
+    String payload = "";
+    while (mqttClient.available()) payload += (char)mqttClient.read();
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    mac.toLowerCase();
+    String base = "openco2/" + mac + "/set/";
+    bool bval = (payload == "1");
+
+    if (topic == base + "LEDonBattery") {
+      LEDonBattery = bval; saveBoolPref("LEDonBattery", LEDonBattery); setLED(co2);
+    } else if (topic == base + "LEDonUSB") {
+      LEDonUSB = bval; saveBoolPref("LEDonUSB", LEDonUSB); setLED(co2);
+    } else if (topic == base + "useSmoothLEDcolor") {
+      useSmoothLEDcolor = bval; saveBoolPref("useSmoothLEDcolor", useSmoothLEDcolor); setLED(co2);
+    } else if (topic == base + "invertDisplay") {
+      invertDisplay = bval; saveBoolPref("invertDisplay", invertDisplay);
+    } else if (topic == base + "useFahrenheit") {
+      useFahrenheit = bval; saveBoolPref("useFahrenheit", useFahrenheit);
+    } else if (topic == base + "english") {
+      english = bval; saveBoolPref("english", english);
+    } else if (topic == base + "limitMaxBattery") {
+      limitMaxBattery = bval; saveBoolPref("limitMaxBattery", limitMaxBattery); updateCharging();
+    } else if (topic == base + "ledbrightness") {
+      ledbrightness = (uint8_t)constrain(payload.toInt(), 0, 100);
+      saveIntPref("ledbrightness", ledbrightness); setLED(co2);
+    } else {
+      return;
+    }
+    // echo confirmed state back
+    String id = topic.substring(base.length());
+    if (id == "ledbrightness") {
+      mqttClient.beginMessage("openco2/" + mac + "/ledbrightness", true);
+      mqttClient.print(ledbrightness);
+      mqttClient.endMessage();
+    } else {
+      mqttClient.beginMessage("openco2/" + mac + "/" + id, true);
+      mqttClient.print(bval ? "1" : "0");
+      mqttClient.endMessage();
+    }
+    DPRINTF("[MQTT] %s -> %s\n", id.c_str(), payload.c_str());
+  });
+  DPRINTLN("[MQTT] settings subscribed");
 }
 
 void mqttUpdate() {
@@ -831,6 +957,16 @@ void mqttUpdate() {
   mqttClient.endMessage();
   mqttClient.beginMessage("openco2/" + mac + "/humidity");
   mqttClient.print(humidity);
+  mqttClient.endMessage();
+  float bv = readBatteryVoltage();
+  mqttClient.beginMessage("openco2/" + mac + "/battery_pct");
+  mqttClient.print(calcBatteryPercentage(bv));
+  mqttClient.endMessage();
+  mqttClient.beginMessage("openco2/" + mac + "/battery_voltage");
+  mqttClient.print(bv, 2);
+  mqttClient.endMessage();
+  mqttClient.beginMessage("openco2/" + mac + "/rssi");
+  mqttClient.print(WiFi.RSSI());
   mqttClient.endMessage();
   DPRINTF("[MQTT] published to %s\n", mqtt_server);
 }

@@ -145,28 +145,20 @@ void LEDMenu() {
         switch (selectedOption) {
           case onBATTERY:
             LEDonBattery = !LEDonBattery;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("LEDonBattery", LEDonBattery);
-            preferences.end();
+            saveBoolPref("LEDonBattery", LEDonBattery);
             break;
           case onUSB:
             LEDonUSB = !LEDonUSB;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("LEDonUSB", LEDonUSB);
-            preferences.end();
+            saveBoolPref("LEDonUSB", LEDonUSB);
             break;
           case COLOR:
             useSmoothLEDcolor = !useSmoothLEDcolor;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("useSmoothLEDcolor", useSmoothLEDcolor);
-            preferences.end();
+            saveBoolPref("useSmoothLEDcolor", useSmoothLEDcolor);
             break;
           case BRIGHTNESS:
             ledbrightness += 20; // 5 25 45 65 85
             ledbrightness %= 100;
-            preferences.begin("co2-sensor", false);
-            preferences.putInt("ledbrightness", ledbrightness);
-            preferences.end();
+            saveIntPref("ledbrightness", ledbrightness);
             break;
           case EXIT_LED:
             return;
@@ -214,29 +206,21 @@ void OptionsMenu() {
             break;
           case INVERT:
             invertDisplay = !invertDisplay;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("invertDisplay", invertDisplay);
-            preferences.end();
+            saveBoolPref("invertDisplay", invertDisplay);
             break;
           case TEMP_UNIT:
             useFahrenheit = !useFahrenheit;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("useFahrenheit", useFahrenheit);
-            preferences.end(); 
+            saveBoolPref("useFahrenheit", useFahrenheit);
             break;
           case LANGUAGE:
             english = !english;
-            preferences.begin("co2-sensor", false);
-            preferences.putBool("english", english);
-            preferences.end(); 
+            saveBoolPref("english", english);
             break;
           case FONT:
             font += 1;
             font %= 2;
             changeFont(font);
-            preferences.begin("co2-sensor", false);
-            preferences.putInt("font", font);
-            preferences.end();
+            saveIntPref("font", font);
             break;
           case RESET_DISPLAY:
             factoryReset();
