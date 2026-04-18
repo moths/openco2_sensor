@@ -29,10 +29,7 @@
 
 RTC_DATA_ATTR uint16_t refreshes = 1;
 RTC_DATA_ATTR UBYTE *BlackImage;
-extern bool BatteryMode, comingFromDeepSleep;
-extern uint8_t HWSubRev;
 
-extern uint8_t font;
 sFONT fonts[2][3] = {
   bahn_big, bahn_mid, bahn_sml,
   //gotham_big, gotham_mid, gotham_sml,
@@ -1216,7 +1213,6 @@ void displayWiFiStrengh() {
 }
 
 void displayinfo() {
-  extern uint64_t serialNumber;
   Paint_Clear(WHITE);
 
   Paint_DrawString_EN(0, 1, "MAC Address:", &Font16, WHITE, BLACK);
@@ -1288,8 +1284,6 @@ void displayinfo() {
 }
 
 void displayinfo2() {
-  extern uint8_t HWSubRev;
-  extern bool BatteryMode, useWiFi, limitMaxBattery, LEDonBattery, LEDonUSB;
   Paint_Clear(WHITE);
 
   // Header
@@ -1314,11 +1308,6 @@ void displayinfo2() {
   Paint_DrawString_EN(0, 82, line, &Font16, WHITE, BLACK);
 
 #ifdef MQTT
-  extern char mqtt_server[];
-  extern char mqtt_port[];
-  extern char mqtt_user[];
-  extern MqttClient mqttClient;
-
   Paint_DrawLine(0, 98, 200, 98, BLACK, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
   Paint_DrawString_EN(0, 100, "MQTT server:", &Font16, WHITE, BLACK);
   Paint_DrawString_EN(0, 116, mqtt_server[0] ? mqtt_server : "(not set)", &Font16, WHITE, BLACK);
@@ -1352,7 +1341,6 @@ void displayWriteError(char errorMessage[256]){
 
 /* TEST_MODE */
 void displayWriteTestResults(float voltage, uint16_t sensorStatus) {
-  extern uint64_t serialNumber;
   char batteryvolt[8] = "";
   dtostrf(voltage, 1, 3, batteryvolt);
   char volt[10] = "V";

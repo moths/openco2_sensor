@@ -53,7 +53,6 @@ Preferences preferences;
 #include <WiFiManager.h>
 WiFiManager wifiManager;
 
-// #define airgradient
 #ifdef airgradient
 /* use https://github.com/geerlingguy/internet-pi to store values */
 #include <WebServer.h>
@@ -61,12 +60,11 @@ const int port = 9925;
 WebServer server(port);
 #endif /* airgradient */
 
-#define MQTT
 #ifdef MQTT
 #ifdef airgradient
 #error only activate one: MQTT or airgradient
 #endif /* airgradient */
-#include <ArduinoMqttClient.h>
+
 // On ESP32-S2 the MQTT CONNACK (broker's connect acknowledgement) arrives in the
 // TCP layer of lwIP - the TCP/IP stack embedded in Espressif's ESP-IDF and used
 // by the ESP32 Arduino core - but isn't promoted to the socket receive queue until
@@ -121,7 +119,6 @@ RTC_DATA_ATTR float temperature = 0.0f, humidity = 0.0f;
 
 RTC_DATA_ATTR uint16_t currentIndex = 0;
 RTC_DATA_ATTR bool overflow = false;
-#define NUM_MEASUREMENTS (24*120)
 RTC_DATA_ATTR uint16_t co2measurements[NUM_MEASUREMENTS];             // every 30 sec
 RTC_DATA_ATTR tempHumData tempHumMeasurements[NUM_MEASUREMENTS / 4];  // every 2 minutes
 
@@ -1032,7 +1029,6 @@ void loop() {
       return;
     }
   } else {
-    extern uint16_t refreshes;
     if (BatteryMode || (refreshes % 6 == 1)) {
       saveMeasurement(new_co2, new_temperature, humidity);
     }
